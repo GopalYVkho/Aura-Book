@@ -22,8 +22,6 @@ const Header = () => {
         <nav className="hidden md:flex items-center gap-space-xs">
           <NavLink to="/" className={navLinkClass}>Book Appointment</NavLink>
           <NavLink to="/my-appointments" className={navLinkClass}>My Appointments</NavLink>
-          <a href="#" className="px-space-md py-space-xs rounded-full font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all">Specialists</a>
-          <a href="#" className="px-space-md py-space-xs rounded-full font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all">Support</a>
         </nav>
 
         {/* Profile & Notifications */}

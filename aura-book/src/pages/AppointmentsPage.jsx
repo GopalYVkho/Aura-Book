@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
+import PageLoader from "../components/PageLoader";
+import toast, { Toaster } from "react-hot-toast";
 
 const AppointmentsPage = () => {
   const [activeTab, setActiveTab] = useState("upcoming");
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Dynamic API States
   const [appointments, setAppointments] = useState([]);
@@ -39,21 +42,33 @@ const AppointmentsPage = () => {
 
   const confirmCancel = async () => {
     if (!selectedAppointment) return;
-
+    console.log(selectedAppointment,appointments);
+    
     try {
       const response = await fetch(
-        `http://localhost:5000/api/appointments/${selectedAppointment.id}`,
+        `http://localhost:5000/api/appointments/${selectedAppointment._id}`,
         {
           method: "DELETE",
         }
       );
-
+      const data = await response.json();
+      console.log(data)
       if (response.ok) {
         setAppointments(
-          appointments.filter((app) => app.id !== selectedAppointment.id)
+          appointments.filter((app) => app.id !== selectedAppointment._id)
         );
         setIsCancelModalOpen(false);
         setSelectedAppointment(null);
+        toast.success(data?.message, {
+          duration: 3000,
+          style: {
+            borderRadius: "9999px",
+            background: "#131b2e",
+            color: "#fff",
+            padding: "12px 20px",
+          },
+        });
+        
       } else {
         console.error("Failed to cancel appointment");
       }
@@ -61,6 +76,23 @@ const AppointmentsPage = () => {
       console.error("Error cancelling appointment:", error);
     }
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitialLoad(false);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isInitialLoad) {
+    return (
+      <PageLoader
+        message="Setting up your workspace..."
+        icon="calendar_clock"
+      />
+    );
+  }
 
   return (
     <div className="w-full max-w-container-max-w mx-auto px-gutter-desktop py-space-xl relative">
@@ -79,21 +111,9 @@ const AppointmentsPage = () => {
             My Appointments
           </h1>
           <p className="font-body-lg text-body-lg text-on-surface-variant mt-space-2xs">
-            Manage, reschedule, or connect to your scheduled mentoring and
+            Manage or connect to your scheduled mentoring and
             consultation sessions with executive advisors.
           </p>
-        </div>
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-space-sm">
-          <div className="relative min-w-[260px] sm:w-72">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">
-              search
-            </span>
-            <input
-              className="w-full h-[46px] pl-10 pr-space-md rounded-xl bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm transition-all"
-              placeholder="Search specialist, topic, or date..."
-              type="text"
-            />
-          </div>
         </div>
       </div>
 
@@ -202,8 +222,8 @@ const AppointmentsPage = () => {
                     Join Video Call
                   </button>
                   <div className="flex items-center justify-center mt-space-sm">
-                    <button 
-                      onClick={() => handleCancelClick(app)} 
+                    <button
+                      onClick={() => handleCancelClick(app)}
                       className="w-full py-2 rounded-full font-label-md text-tertiary hover:bg-tertiary-fixed/10 border border-transparent hover:border-tertiary/30 transition-all cursor-pointer"
                     >
                       Cancel Appointment
@@ -243,6 +263,55 @@ const AppointmentsPage = () => {
               </p>
             </div>
           )}
+
+          {activeTab === "past" && pastAppointments.length > 0
+            ? pastAppointments.map((app) => (
+                <div
+                  key={app.id}
+                  className="group flex flex-col justify-between bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm opacity-80 hover:opacity-100 transition-all duration-200"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-space-sm mb-space-md">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">
+                        <span className="w-1.5 h-1.5 rounded-full bg-outline"></span>{" "}
+                        Completed
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-space-md mb-space-md grayscale group-hover:grayscale-0 transition-all">
+                      <img
+                        className="w-14 h-14 rounded-full object-cover shadow-sm"
+                        alt={app.name}
+                        src={defaultImage}
+                      />
+                      <div className="min-w-0">
+                        <h3 className="font-headline-sm text-headline-sm text-on-surface truncate">
+                          {app.name}
+                        </h3>
+                        <p className="font-body-sm text-body-sm text-on-surface-variant truncate">
+                          Lead Product Designer
+                        </p>
+                      </div>
+                    </div>
+                    <h4 className="font-headline-sm text-headline-sm text-on-surface mb-space-sm leading-snug">
+                      {app.topic || "1-on-1 Strategy Session"}
+                    </h4>
+                    <div className="flex items-start gap-space-xs p-space-sm rounded-xl bg-surface-container-low mb-space-lg">
+                      <span className="material-symbols-outlined text-outline text-[20px] shrink-0 mt-0.5">
+                        history
+                      </span>
+                      <div className="font-body-sm text-body-sm">
+                        <p className="font-numeric-slot text-numeric-slot text-on-surface-variant line-through decoration-outline/50">
+                          {app.date}
+                        </p>
+                        <p className="text-on-surface-variant line-through decoration-outline/50">
+                          {app.time}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            : null}
         </div>
       )}
 
@@ -280,13 +349,13 @@ const AppointmentsPage = () => {
             <div className="flex items-center justify-end gap-space-sm">
               <button
                 onClick={() => setIsCancelModalOpen(false)}
-                className="px-space-lg h-11 rounded-full text-on-surface-variant hover:bg-surface-container-high font-label-lg transition-colors"
+                className="px-space-lg h-11 rounded-full text-on-surface-variant hover:bg-surface-container-high font-label-lg transition-colors cursor-pointer"
               >
                 Keep Appointment
               </button>
               <button
                 onClick={confirmCancel}
-                className="px-space-lg h-11 rounded-full bg-tertiary-container hover:bg-tertiary text-on-tertiary font-label-lg shadow-sm transition-all"
+                className="px-space-lg h-11 rounded-full bg-tertiary-container hover:bg-tertiary text-on-tertiary font-label-lg shadow-sm transition-all cursor-pointer"
               >
                 Yes, Cancel
               </button>
@@ -294,6 +363,7 @@ const AppointmentsPage = () => {
           </div>
         </div>
       )}
+      <Toaster position="bottom-center" reverseOrder={false} />
     </div>
   );
 };

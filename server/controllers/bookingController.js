@@ -5,20 +5,42 @@ const ALL_SLOTS = [
   "02:00 PM", "02:45 PM", "03:30 PM"
 ];
 
+const isSlotExpired = (slotTime, requestedDateStr) => {
+  if (!requestedDateStr) return false;
+
+  const now = new Date();
+  
+  const [year, month, day] = requestedDateStr.split('-');
+  const [time, modifier] = slotTime.split(' ');
+  let [hours, minutes] = time.split(':');
+  
+  if (hours === '12') hours = '00';
+  if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
+
+  const slotDateTime = new Date(year, month - 1, day, hours, minutes);
+  
+  return slotDateTime < now;
+};
+
 // 1. Get Available Slots (Checks DB for booked times)
 exports.getSlots = async (req, res) => {
   try {
     const { date } = req.query;
     
-    // Find all upcoming appointments for this date
     const bookedAppointments = await Appointment.find({ date, status: 'upcoming' });
     const bookedTimes = bookedAppointments.map(app => app.time);
 
-    // Generate slots dynamically
-    const slots = ALL_SLOTS.map(time => ({
-      time,
-      status: bookedTimes.includes(time) ? 'booked' : 'available'
-    }));
+    const slots = ALL_SLOTS.map(time => {
+      if (bookedTimes.includes(time)) {
+        return { time, status: 'booked' };
+      }
+      
+      if (isSlotExpired(time, date)) {
+        return { time, status: 'expired' };
+      }
+      
+      return { time, status: 'available' };
+    });
 
     res.json({ date, slots });
   } catch (error) {
@@ -31,7 +53,6 @@ exports.bookAppointment = async (req, res) => {
   try {
     const { date, time, name } = req.body;
 
-    // Check if slot is already booked (Concurrency Check)
     const existingBooking = await Appointment.findOne({ date, time, status: 'upcoming' });
     
     if (existingBooking) {
@@ -41,14 +62,13 @@ exports.bookAppointment = async (req, res) => {
       });
     }
 
-    // Save to DB
     const newAppointment = await Appointment.create({
       name: name || "User",
       date,
-      time
+      time,
+      status: 'upcoming'
     });
 
-    // Small delay to simulate realistic UX loading
     setTimeout(() => {
       res.status(201).json({ message: "Booking confirmed", appointment: newAppointment });
     }, 800);
@@ -58,11 +78,30 @@ exports.bookAppointment = async (req, res) => {
   }
 };
 
-// 3. Get All Appointments
+// 3. Get All Appointments (UPDATED LOGIC 🔥)
 exports.getAppointments = async (req, res) => {
   try {
-    const upcoming = await Appointment.find({ status: 'upcoming' }).sort({ date: 1 });
-    const past = await Appointment.find({ status: 'past' }).sort({ date: -1 });
+    const allAppointments = await Appointment.find({ status: { $ne: 'cancelled' } });
+
+    const upcoming = [];
+    const past = [];
+
+    for (let app of allAppointments) {
+      const isPast = isSlotExpired(app.time, app.date);
+
+      if (isPast) {
+        past.push(app);
+        
+        if (app.status === 'upcoming') {
+          await Appointment.findByIdAndUpdate(app._id, { status: 'past' });
+        }
+      } else {
+        upcoming.push(app);
+      }
+    }
+
+    upcoming.sort((a, b) => new Date(a.date) - new Date(b.date));
+    past.sort((a, b) => new Date(b.date) - new Date(a.date));
     
     res.json({ upcoming, past });
   } catch (error) {
@@ -75,7 +114,6 @@ exports.cancelAppointment = async (req, res) => {
   try {
     const { id } = req.params;
     
-    // We update status to cancelled instead of deleting the record entirely (Good practice)
     const appointment = await Appointment.findByIdAndUpdate(id, { status: 'cancelled' }, { new: true });
     
     if (!appointment) {

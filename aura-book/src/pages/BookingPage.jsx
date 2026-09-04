@@ -1,13 +1,20 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import toast, { Toaster } from "react-hot-toast";
+import PageLoader from "../components/PageLoader";
 
 const BookingPage = () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const now = new Date();
 
+  const navigate = useNavigate();
+
   const [viewDate, setViewDate] = useState(new Date(today));
   const [selectedDate, setSelectedDate] = useState(new Date(today));
   const [selectedSlot, setSelectedSlot] = useState("");
+
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // API States
   const [morningSlots, setMorningSlots] = useState([]);
@@ -83,6 +90,19 @@ const BookingPage = () => {
         setIsConfirmed(true);
         setIsBooking(false);
         setSelectedDate(new Date(selectedDate));
+        toast.success("Your session has been successfully booked!", {
+          duration: 3000,
+          style: {
+            borderRadius: "9999px",
+            background: "#131b2e",
+            color: "#fff",
+            padding: "12px 20px",
+          },
+        });
+
+        setTimeout(() => {
+          navigate("/my-appointments");
+        }, 2000);
       }
     } catch (error) {
       setErrorMessage("Network error. Please try again.", error);
@@ -153,6 +173,18 @@ const BookingPage = () => {
     return false;
   };
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitialLoad(false);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isInitialLoad) {
+    return <PageLoader message="Setting up your workspace..." icon="calendar_clock" />;
+  }
+
   return (
     <div className="w-full max-w-container-max-w mx-auto px-gutter-desktop py-space-xl flex flex-col gap-space-xl">
       {/* ERROR TOAST NOTIFICATION */}
@@ -183,14 +215,6 @@ const BookingPage = () => {
               alt="Sarah Jenkins"
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuBV2WWVey_FnijuHf_sZ5YfMMacUUHADg5nBkKH_fqGj4GeAN62urg8-CavqZ7MgtBgDfloVLXrIooVrGGd_9cjmg7984ZnO2jxLYv-IZ_IrGyGAWf8kM6oparM0LT7hJU_-ZXxLzwPpAlK1HSRyEfGga8YbVAqymy40qtKwdq2HQ3-PyZGCwBLAbzPcy4xG5MgPFCbd0ZcrCT2_1GK7ZpQrF8ghPLfHZrurgwg1HmA8nmnSnZEFGuLdA"
             />
-            <span
-              className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-secondary text-on-secondary flex items-center justify-center shadow-sm"
-              title="Online and accepting bookings"
-            >
-              <span className="material-symbols-outlined text-[14px]">
-                check
-              </span>
-            </span>
           </div>
           <div className="flex flex-col gap-space-2xs">
             <div className="flex flex-wrap items-center gap-space-xs">
@@ -378,16 +402,15 @@ const BookingPage = () => {
               </div>
             </div>
             {(() => {
-             
               const availableCount = [
                 ...morningSlots,
                 ...afternoonSlots,
-              ].filter((slot) => slot.status === "available").length;
+              ].filter((slot) => slot.status === "available" && !isSlotDisabled(slot, selectedDate)).length;
 
               if (availableCount === 0) {
                 return (
                   <div className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-sm font-semibold">
-                    Fully Booked
+                    No Slots Available
                   </div>
                 );
               }
@@ -577,7 +600,7 @@ const BookingPage = () => {
                   ? "bg-surface-container text-outline cursor-not-allowed"
                   : isConfirmed
                   ? "bg-secondary text-white shadow-lg "
-                  : "bg-primary-container hover:bg-primary text-on-primary hover:shadow-lg cursor-pointer" 
+                  : "bg-primary-container hover:bg-primary text-on-primary hover:shadow-lg cursor-pointer"
               }`}
             >
               {isBooking ? (
@@ -613,6 +636,7 @@ const BookingPage = () => {
           </div>
         </section>
       </div>
+      <Toaster position="bottom-center" reverseOrder={false} />
     </div>
   );
 };
