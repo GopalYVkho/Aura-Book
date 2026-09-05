@@ -10,7 +10,10 @@ connectDB();
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin:"https://aura-book-chi.vercel.app",
+  credentials:true
+}));
 app.use(express.json());
 
 app.use('/api', bookingRoutes);
