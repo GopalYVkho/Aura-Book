@@ -2,6 +2,13 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
 import PageLoader from "../components/PageLoader";
+import { API_URL } from "../config";
+import {
+  DEFAULT_SLOTS,
+  formatDateForAPI,
+  isSlotDisabled,
+  splitSlotsByPeriod,
+} from "../utils/appointmentHelpers";
 
 const BookingPage = () => {
   const today = new Date();
@@ -23,42 +30,32 @@ const BookingPage = () => {
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [userTimezone] = useState(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
-
-  const formatDateForAPI = (dateObj) => {
-    const year = dateObj.getFullYear();
-    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
-    const day = String(dateObj.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
 
   useEffect(() => {
     const fetchSlots = async () => {
       try {
         const formattedDate = formatDateForAPI(selectedDate);
         const response = await fetch(
-          `http://localhost:5000/api/slots?date=${formattedDate}`
+          `${API_URL}/api/slots?date=${formattedDate}`,
         );
         const data = await response.json();
 
         let fetchedSlots = data.slots;
 
         if (!fetchedSlots || fetchedSlots.length === 0) {
-          fetchedSlots = [
-            { time: "09:30 AM", status: "available" },
-            { time: "10:15 AM", status: "available" },
-            { time: "11:00 AM", status: "available" },
-            { time: "02:00 PM", status: "available" },
-            { time: "02:45 PM", status: "available" },
-            { time: "03:30 PM", status: "available" },
-          ];
+          fetchedSlots = DEFAULT_SLOTS;
         }
 
-        setMorningSlots(fetchedSlots.filter((s) => s.time.includes("AM")));
-        setAfternoonSlots(fetchedSlots.filter((s) => s.time.includes("PM")));
+        const slotsByPeriod = splitSlotsByPeriod(fetchedSlots);
+        setMorningSlots(slotsByPeriod.morningSlots);
+        setAfternoonSlots(slotsByPeriod.afternoonSlots);
       } catch (error) {
         console.error("Error fetching slots:", error);
+        const slotsByPeriod = splitSlotsByPeriod(DEFAULT_SLOTS);
+        setMorningSlots(slotsByPeriod.morningSlots);
+        setAfternoonSlots(slotsByPeriod.afternoonSlots);
       }
     };
 
@@ -70,7 +67,7 @@ const BookingPage = () => {
     setErrorMessage("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/book", {
+      const response = await fetch(`${API_URL}/api/book`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -90,22 +87,15 @@ const BookingPage = () => {
         setIsConfirmed(true);
         setIsBooking(false);
         setSelectedDate(new Date(selectedDate));
-        toast.success("Your session has been successfully booked!", {
-          duration: 3000,
-          style: {
-            borderRadius: "9999px",
-            background: "#131b2e",
-            color: "#fff",
-            padding: "12px 20px",
-          },
-        });
+        toast.success("Your session has been successfully booked!");
 
         setTimeout(() => {
           navigate("/my-appointments");
         }, 2000);
       }
     } catch (error) {
-      setErrorMessage("Network error. Please try again.", error);
+      console.error("Booking failed:", error);
+      setErrorMessage("Network error. Please try again.");
       setIsBooking(false);
     }
   };
@@ -125,11 +115,11 @@ const BookingPage = () => {
   const currentMonth = viewDate.getMonth();
   const blanks = Array.from(
     { length: getFirstDayOfMonth(currentYear, currentMonth) },
-    (_, i) => i
+    (_, i) => i,
   );
   const days = Array.from(
     { length: getDaysInMonth(currentYear, currentMonth) },
-    (_, i) => i + 1
+    (_, i) => i + 1,
   );
   const monthNames = [
     "January",
@@ -155,24 +145,6 @@ const BookingPage = () => {
     "Saturday",
   ];
 
-  const isSlotDisabled = (slot, dateObj) => {
-    if (slot.status === "booked") return true;
-    if (dateObj < today) return true;
-
-    if (dateObj.getTime() === today.getTime()) {
-      const [time, modifier] = slot.time.split(" ");
-      let [hours, minutes] = time.split(":");
-      hours = parseInt(hours, 10);
-      if (modifier === "PM" && hours < 12) hours += 12;
-      if (modifier === "AM" && hours === 12) hours = 0;
-
-      const slotDateTime = new Date(dateObj);
-      slotDateTime.setHours(hours, parseInt(minutes, 10), 0, 0);
-      return slotDateTime <= now;
-    }
-    return false;
-  };
-
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsInitialLoad(false);
@@ -182,11 +154,16 @@ const BookingPage = () => {
   }, []);
 
   if (isInitialLoad) {
-    return <PageLoader message="Setting up your workspace..." icon="calendar_clock" />;
+    return (
+      <PageLoader
+        message="Setting up your workspace..."
+        icon="calendar_clock"
+      />
+    );
   }
 
   return (
-    <div className="w-full max-w-container-max-w mx-auto px-gutter-desktop py-space-xl flex flex-col gap-space-xl">
+    <div className="w-full max-w-container-max-w mx-auto px-gutter-mobile py-space-lg sm:px-gutter-desktop sm:py-space-xl flex flex-col gap-space-lg sm:gap-space-xl animate-in fade-in slide-in-from-bottom-3 duration-700 ease-out">
       {/* ERROR TOAST NOTIFICATION */}
       {errorMessage && (
         <div className="fixed top-20 right-4 z-50 bg-error-container text-on-error-container p-4 rounded-xl shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-5">
@@ -204,9 +181,8 @@ const BookingPage = () => {
         </div>
       )}
 
-      {/* 1. FULLY RESTORED HERO CARD */}
-      <section className="w-full bg-surface-container-lowest rounded-xl shadow-sm p-space-lg md:p-space-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-lg relative overflow-hidden">
-        <div className="absolute -right-16 -top-16 w-64 h-64 bg-primary-fixed/30 rounded-full blur-3xl pointer-events-none"></div>
+      <section className="w-full bg-surface-container-lowest rounded-xl shadow-sm p-space-md sm:p-space-lg md:p-space-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-lg relative overflow-hidden">
+        <div className="absolute -right-16 -top-16 w-64 h-64 bg-primary-container/10 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-space-lg z-10">
           <div className="relative flex-shrink-0">
@@ -243,23 +219,34 @@ const BookingPage = () => {
             </p>
 
             <div className="flex flex-wrap items-center gap-space-md mt-space-xs text-on-surface-variant font-label-md text-label-md">
-              <div className="flex items-center gap-1.5 bg-surface-container-low px-space-sm py-space-2xs rounded-lg">
-                <span className="material-symbols-outlined text-primary text-[18px]">
-                  schedule
-                </span>
-                <span>45 min</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-surface-container-low px-space-sm py-space-2xs rounded-lg">
-                <span className="material-symbols-outlined text-primary text-[18px]">
-                  videocam
-                </span>
-                <span>Google Meet</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-surface-container-low px-space-sm py-space-2xs rounded-lg">
-                <span className="material-symbols-outlined text-primary text-[18px]">
-                  payments
-                </span>
-                <span className="text-on-surface font-headline-sm">₹1,500</span>
+              <div className="flex flex-wrap items-center gap-space-md mt-space-xs text-on-surface-variant font-label-md text-label-md">
+                <div className="flex items-center gap-1.5 bg-surface-container-low px-space-sm py-space-2xs rounded-lg">
+                  <span className="material-symbols-outlined text-primary text-[18px]">
+                    schedule
+                  </span>
+                  <span>45 min</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-surface-container-low px-space-sm py-space-2xs rounded-lg">
+                  <span className="material-symbols-outlined text-primary text-[18px]">
+                    videocam
+                  </span>
+                  <span>Google Meet</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-surface-container-low px-space-sm py-space-2xs rounded-lg">
+                  <span className="material-symbols-outlined text-primary text-[18px]">
+                    payments
+                  </span>
+                  <span className="text-on-surface font-headline-sm">
+                    ₹1,500
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-surface-container-low px-space-sm py-space-2xs rounded-lg">
+                  <span className="material-symbols-outlined text-primary text-[18px]">
+                    event_busy
+                  </span>
+                  <span>Mon - Fri Only</span>
+                </div>
               </div>
             </div>
           </div>
@@ -291,8 +278,8 @@ const BookingPage = () => {
       {/* Main Workspace */}
       <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-space-xl items-start">
         {/* Left Column: Calendar */}
-        <section className="lg:col-span-7 bg-surface-container-lowest rounded-xl shadow-sm p-space-lg md:p-space-xl flex flex-col gap-space-lg">
-          <div className="flex items-center justify-between">
+        <section className="lg:col-span-7 bg-surface-container-lowest rounded-xl shadow-sm p-space-md sm:p-space-lg md:p-space-xl flex flex-col gap-space-lg">
+          <div className="flex flex-col gap-space-md sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col">
               <h2 className="font-headline-md text-headline-md text-on-surface tracking-tight">
                 Select Date
@@ -301,8 +288,8 @@ const BookingPage = () => {
                 Choose an available day for Sarah's calendar
               </p>
             </div>
-            <div className="flex items-center gap-space-xs">
-              <span className="font-headline-sm text-headline-sm text-on-surface mr-space-sm">
+            <div className="flex flex-wrap items-center gap-space-xs">
+              <span className="mr-auto font-headline-sm text-headline-sm text-on-surface sm:mr-space-sm">
                 {monthNames[currentMonth]} {currentYear}
               </span>
               <button
@@ -334,9 +321,9 @@ const BookingPage = () => {
             <span>Sun</span>
           </div>
 
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
             {blanks.map((_, i) => (
-              <div key={`blank-${i}`} className="h-14"></div>
+              <div key={`blank-${i}`} className="h-11 sm:h-14"></div>
             ))}
 
             {days.map((day) => {
@@ -358,12 +345,12 @@ const BookingPage = () => {
                     setIsConfirmed(false);
                     setErrorMessage("");
                   }}
-                  className={`h-14 rounded-lg flex flex-col items-center justify-center font-numeric-slot text-numeric-slot transition-all duration-200 relative focus:outline-none ${
+                  className={`h-11 sm:h-14 rounded-lg flex flex-col items-center justify-center font-numeric-slot text-numeric-slot transition-all duration-200 relative focus:outline-none ${
                     isDisabledDay
                       ? "bg-surface-container-lowest text-outline cursor-not-allowed border border-surface-container border-dashed"
                       : isSelected
-                      ? "bg-primary-container text-on-primary shadow-md transform scale-[1.03] border border-transparent"
-                      : "bg-surface-container-low hover:bg-surface-container-high text-on-surface border border-transparent cursor-pointer"
+                        ? "bg-primary-container text-on-primary shadow-md transform scale-[1.03] border border-transparent"
+                        : "bg-surface-container-low hover:bg-surface-container-high text-on-surface border border-transparent cursor-pointer"
                   }`}
                 >
                   <span className={isSelected ? "font-bold" : ""}>{day}</span>
@@ -383,9 +370,9 @@ const BookingPage = () => {
           </div>
 
           {/* 2. FULLY RESTORED ACTIVE SELECTION BANNER */}
-          <div className="mt-space-md p-space-md bg-surface-container-low rounded-xl flex items-center justify-between">
+          <div className="mt-space-md p-space-md bg-surface-container-low rounded-xl flex flex-col items-start gap-space-md sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-space-sm">
-              <div className="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-headline-sm">
+              <div className="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center text-primary font-headline-sm">
                 <span className="material-symbols-outlined text-[20px]">
                   calendar_today
                 </span>
@@ -405,7 +392,11 @@ const BookingPage = () => {
               const availableCount = [
                 ...morningSlots,
                 ...afternoonSlots,
-              ].filter((slot) => slot.status === "available" && !isSlotDisabled(slot, selectedDate)).length;
+              ].filter(
+                (slot) =>
+                  slot.status === "available" &&
+                  !isSlotDisabled(slot, selectedDate, today, now),
+              ).length;
 
               if (availableCount === 0) {
                 return (
@@ -438,7 +429,7 @@ const BookingPage = () => {
 
         {/* Right Column: Time Slots & Summary */}
         <section className="lg:col-span-5 flex flex-col gap-space-lg">
-          <div className="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg md:p-space-xl flex flex-col gap-space-lg">
+          <div className="bg-surface-container-lowest rounded-xl shadow-sm p-space-md sm:p-space-lg md:p-space-xl flex flex-col gap-space-lg">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex flex-col">
                 <h2 className="font-headline-md text-headline-md text-on-surface tracking-tight">
@@ -458,7 +449,7 @@ const BookingPage = () => {
                   <span>Open</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-surface-dim"></span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-outline-variant"></span>
                   <span>Booked</span>
                 </div>
               </div>
@@ -475,9 +466,14 @@ const BookingPage = () => {
                 </span>
                 <span>{morningSlots.length} slots</span>
               </div>
-              <div className="grid grid-cols-3 gap-space-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-space-xs">
                 {morningSlots.map((slot, index) => {
-                  const isDisabled = isSlotDisabled(slot, selectedDate);
+                  const isDisabled = isSlotDisabled(
+                    slot,
+                    selectedDate,
+                    today,
+                    now,
+                  );
                   const isSelected = selectedSlot === slot.time;
                   return (
                     <button
@@ -488,8 +484,8 @@ const BookingPage = () => {
                         isDisabled
                           ? "bg-surface-container text-outline-variant cursor-not-allowed line-through opacity-70"
                           : isSelected
-                          ? "bg-primary-container text-on-primary shadow-md scale-[1.02] gap-1"
-                          : "bg-surface-container-low hover:bg-surface-container-high text-on-surface hover:scale-[1.02] cursor-pointer"
+                            ? "bg-primary-container text-on-primary shadow-md scale-[1.02] gap-1"
+                            : "bg-surface-container-low hover:bg-surface-container-high text-on-surface hover:scale-[1.02] cursor-pointer"
                       }`}
                     >
                       {isSelected && !isDisabled && (
@@ -515,9 +511,14 @@ const BookingPage = () => {
                 </span>
                 <span>{afternoonSlots.length} slots</span>
               </div>
-              <div className="grid grid-cols-3 gap-space-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-space-xs">
                 {afternoonSlots.map((slot, index) => {
-                  const isDisabled = isSlotDisabled(slot, selectedDate);
+                  const isDisabled = isSlotDisabled(
+                    slot,
+                    selectedDate,
+                    today,
+                    now,
+                  );
                   const isSelected = selectedSlot === slot.time;
                   return (
                     <button
@@ -528,8 +529,8 @@ const BookingPage = () => {
                         isDisabled
                           ? "bg-surface-container text-outline-variant cursor-not-allowed line-through opacity-70"
                           : isSelected
-                          ? "bg-primary-container text-on-primary shadow-md scale-[1.02] gap-1"
-                          : "bg-surface-container-low hover:bg-surface-container-high text-on-surface hover:scale-[1.02] cursor-pointer"
+                            ? "bg-primary-container text-on-primary shadow-md scale-[1.02] gap-1"
+                            : "bg-surface-container-low hover:bg-surface-container-high text-on-surface hover:scale-[1.02] cursor-pointer"
                       }`}
                     >
                       {isSelected && !isDisabled && (
@@ -546,7 +547,7 @@ const BookingPage = () => {
           </div>
 
           {/* 4. FULLY RESTORED SUMMARY PANEL */}
-          <div className="bg-surface-container-lowest rounded-xl shadow-md p-space-lg md:p-space-xl flex flex-col gap-space-md relative overflow-hidden">
+          <div className="bg-surface-container-lowest rounded-xl shadow-md p-space-md sm:p-space-lg md:p-space-xl flex flex-col gap-space-md relative overflow-hidden">
             <div className="flex items-center justify-between pb-space-xs">
               <span className="font-headline-sm text-headline-sm text-on-surface">
                 Booking Summary
@@ -599,8 +600,8 @@ const BookingPage = () => {
                 !selectedSlot
                   ? "bg-surface-container text-outline cursor-not-allowed"
                   : isConfirmed
-                  ? "bg-secondary text-white shadow-lg "
-                  : "bg-primary-container hover:bg-primary text-on-primary hover:shadow-lg cursor-pointer"
+                    ? "bg-secondary text-white shadow-lg "
+                    : "bg-primary-container hover:bg-primary text-on-primary hover:shadow-lg cursor-pointer"
               }`}
             >
               {isBooking ? (

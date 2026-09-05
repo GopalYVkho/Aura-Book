@@ -22,15 +22,23 @@ const isSlotExpired = (slotTime, requestedDateStr) => {
   return slotDateTime < now;
 };
 
-// 1. Get Available Slots (Checks DB for booked times)
+// 1. Get Available Slots 
 exports.getSlots = async (req, res) => {
   try {
     const { date } = req.query;
     
+    const [year, month, day] = date.split('-');
+    const reqDate = new Date(year, month - 1, day);
+    const isWeekend = reqDate.getDay() === 0 || reqDate.getDay() === 6;
+
     const bookedAppointments = await Appointment.find({ date, status: 'upcoming' });
     const bookedTimes = bookedAppointments.map(app => app.time);
 
     const slots = ALL_SLOTS.map(time => {
+      if (isWeekend) {
+        return { time, status: 'booked' }; 
+      }
+
       if (bookedTimes.includes(time)) {
         return { time, status: 'booked' };
       }
@@ -78,7 +86,7 @@ exports.bookAppointment = async (req, res) => {
   }
 };
 
-// 3. Get All Appointments (UPDATED LOGIC 🔥)
+// 3. Get All Appointments
 exports.getAppointments = async (req, res) => {
   try {
     const allAppointments = await Appointment.find({ status: { $ne: 'cancelled' } });

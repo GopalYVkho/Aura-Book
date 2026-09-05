@@ -25,6 +25,10 @@
   --color-error-container: #ffdad6;
   --color-tertiary: #950029;
   --color-tertiary-container: #c20038;
+  --color-red: #EF4444;
+  --color-red-container: #FEE2E2;
+  --color-on-red: #FFFFFF;
+  
 
   /* Custom Spacing */
   --spacing-space-2xs: 0.25rem;
@@ -50,39 +54,24 @@
   }
 }
 
-@theme {
-  /* Unga pazhaya colors and spacing inga irukkum... */
-  --font-sans: "Plus Jakarta Sans", sans-serif;
-}
-
 @layer utilities {
   /* Exact Typography matches from original HTML */
-  .text-display-hero { font-size: 40px; line-height: 48px; letter-spacing: -0.025em; font-weight: 700; }
-  .text-headline-lg { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; font-weight: 700; }
-  .text-headline-md { font-size: 20px; line-height: 28px; letter-spacing: -0.01em; font-weight: 600; }
-  .text-headline-sm { font-size: 16px; line-height: 24px; letter-spacing: -0.005em; font-weight: 600; }
+  .text-display-hero { font-size: 40px; line-height: 48px; letter-spacing: 0; font-weight: 700; }
+  .text-headline-lg { font-size: 28px; line-height: 36px; letter-spacing: 0; font-weight: 700; }
+  .text-headline-md { font-size: 20px; line-height: 28px; letter-spacing: 0; font-weight: 600; }
+  .text-headline-sm { font-size: 16px; line-height: 24px; letter-spacing: 0; font-weight: 600; }
   .text-body-lg { font-size: 16px; line-height: 24px; font-weight: 400; }
   .text-body-md { font-size: 14px; line-height: 20px; font-weight: 400; }
-  .text-body-sm { font-size: 12px; line-height: 18px; letter-spacing: 0.01em; font-weight: 400; }
-  .text-label-lg { font-size: 14px; line-height: 20px; letter-spacing: 0.005em; font-weight: 600; }
-  .text-label-md { font-size: 12px; line-height: 16px; letter-spacing: 0.01em; font-weight: 600; }
-  .text-label-sm { font-size: 11px; line-height: 14px; letter-spacing: 0.02em; font-weight: 600; }
-  .text-numeric-slot { font-size: 15px; line-height: 20px; letter-spacing: -0.01em; font-weight: 600; }
+  .text-body-sm { font-size: 12px; line-height: 18px; letter-spacing: 0; font-weight: 400; }
+  .text-label-lg { font-size: 14px; line-height: 20px; letter-spacing: 0; font-weight: 600; }
+  .text-label-md { font-size: 12px; line-height: 16px; letter-spacing: 0; font-weight: 600; }
+  .text-label-sm { font-size: 11px; line-height: 14px; letter-spacing: 0; font-weight: 600; }
+  .text-numeric-slot { font-size: 15px; line-height: 20px; letter-spacing: 0; font-weight: 600; }
 
   /* Map font family classes used in the HTML */
   .font-display-hero, .font-headline-lg, .font-headline-md, .font-headline-sm,
   .font-body-lg, .font-body-md, .font-body-sm, .font-label-lg, .font-label-md,
   .font-label-sm, .font-numeric-slot {
     font-family: var(--font-sans);
-  }
-}
-
-@layer base {
-  body {
-    background-color: var(--color-surface);
-    color: var(--color-on-surface);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    overscroll-behavior: none;
   }
 }
